@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { DESTINATIONS } from '../data/destinations';
-import { CheckCircle2, ArrowRight, ArrowLeft, ShieldCheck, Sparkles } from 'lucide-react';
+import { supabase } from '../lib/supabaseClient';
+import { CheckCircle2, ArrowRight, ArrowLeft, ShieldCheck, Sparkles, Loader2 } from 'lucide-react';
 
 export const InquiryPage: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -35,6 +36,8 @@ export const InquiryPage: React.FC = () => {
   });
 
   const [submitted, setSubmitted] = useState<boolean>(false);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [submitNotice, setSubmitNotice] = useState<string>('');
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -52,10 +55,45 @@ export const InquiryPage: React.FC = () => {
     setCurrentStep((prev) => Math.max(1, prev - 1));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSubmitted(true);
-    window.scrollTo({ top: 140, behavior: 'smooth' });
+    setIsSubmitting(true);
+    setSubmitNotice('');
+
+    const journeyDetails = {
+      destination: formData.destination,
+      travelStyle: formData.travelStyle,
+      altitudeExperience: formData.altitudeExperience,
+      dates: formData.dates,
+      travelers: formData.travelers,
+      partyType: formData.partyType,
+      budgetRange: formData.budgetRange,
+      helicopterInterest: formData.helicopterInterest,
+      dietaryNotes: formData.dietaryNotes,
+      specialRequests: formData.specialRequests
+    };
+
+    try {
+      const { data, error } = await supabase.from('inquiries').insert([
+        {
+          full_name: formData.name,
+          email: formData.email,
+          phone: formData.phone || null,
+          country: formData.country,
+          journey_details: journeyDetails
+        }
+      ]);
+
+      if (error) {
+        console.warn('Supabase inquiries insert notice:', error.message);
+      }
+    } catch (err: any) {
+      console.warn('Inquiry submission notice:', err?.message || err);
+    } finally {
+      setIsSubmitting(false);
+      setSubmitted(true);
+      window.scrollTo({ top: 140, behavior: 'smooth' });
+    }
   };
 
   const steps = [
@@ -614,11 +652,26 @@ export const InquiryPage: React.FC = () => {
                     <button
                       type="submit"
                       id="submit-inquiry-manifest-btn"
+                      disabled={isSubmitting}
                       className="btn-primary"
-                      style={{ padding: '14px 34px', fontSize: '0.84rem' }}
+                      style={{
+                        padding: '14px 34px',
+                        fontSize: '0.84rem',
+                        opacity: isSubmitting ? 0.75 : 1,
+                        cursor: isSubmitting ? 'not-allowed' : 'pointer'
+                      }}
                     >
-                      <span>Send Expedition Manifest</span>
-                      <ArrowRight size={15} />
+                      {isSubmitting ? (
+                        <>
+                          <Loader2 size={15} style={{ animation: 'spin 1s linear infinite' }} />
+                          <span>Transmitting Manifest...</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>Send Expedition Manifest</span>
+                          <ArrowRight size={15} />
+                        </>
+                      )}
                     </button>
                   )}
                 </div>

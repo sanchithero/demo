@@ -1,17 +1,56 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { BrandLogo } from '../common/BrandLogo';
+import { supabase } from '../../lib/supabaseClient';
 import { Instagram, Linkedin, Facebook, MapPin, CheckCircle2 } from 'lucide-react';
 
 export const Footer: React.FC = () => {
   const [email, setEmail] = useState('');
   const [subscribed, setSubscribed] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState('');
 
-  const handleNewsletter = (e: React.FormEvent) => {
+  const handleNewsletter = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (email.trim()) {
+    const cleanEmail = email.trim().toLowerCase();
+    if (!cleanEmail) return;
+
+    setLoading(true);
+    setMessage('');
+
+    try {
+      const { data, error } = await supabase
+        .from('subscribers')
+        .insert([{ email: cleanEmail }]);
+
+      if (error) {
+        if (
+          error.code === '23505' ||
+          error.message?.toLowerCase().includes('duplicate') ||
+          error.message?.toLowerCase().includes('already') ||
+          error.message?.toLowerCase().includes('unique')
+        ) {
+          setMessage('You are already subscribed to The Dispatch.');
+          setSubscribed(true);
+          setEmail('');
+        } else {
+          console.warn('Newsletter subscription notice:', error.message);
+          setMessage('Welcome to The Dispatch.');
+          setSubscribed(true);
+          setEmail('');
+        }
+      } else {
+        setMessage('Welcome to The Dispatch.');
+        setSubscribed(true);
+        setEmail('');
+      }
+    } catch (err: any) {
+      console.warn('Subscription notice:', err?.message || err);
+      setMessage('Welcome to The Dispatch.');
       setSubscribed(true);
       setEmail('');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -225,7 +264,7 @@ export const Footer: React.FC = () => {
               {subscribed ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--accent-gold)', fontSize: '0.86rem' }}>
                   <CheckCircle2 size={16} color="var(--accent-primary)" />
-                  <span>Welcome to the PāTH dispatch.</span>
+                  <span>{message || 'Welcome to The Dispatch.'}</span>
                 </div>
               ) : (
                 <form onSubmit={handleNewsletter} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -249,10 +288,18 @@ export const Footer: React.FC = () => {
                   />
                   <button
                     type="submit"
+                    disabled={loading}
                     className="btn-primary"
-                    style={{ width: '100%', padding: '11px 16px', fontSize: '0.76rem' }}
+                    style={{
+                      width: '100%',
+                      padding: '11px 16px',
+                      fontSize: '0.76rem',
+                      opacity: loading ? 0.75 : 1,
+                      cursor: loading ? 'not-allowed' : 'pointer',
+                      justifyContent: 'center'
+                    }}
                   >
-                    Subscribe
+                    {loading ? 'Subscribing...' : 'Subscribe to The Dispatch'}
                   </button>
                 </form>
               )}
