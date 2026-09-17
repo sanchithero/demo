@@ -18,6 +18,8 @@ export const Footer: React.FC = () => {
     setLoading(true);
     setMessage('');
 
+    console.log('[Supabase Newsletter] Subscribing to The Dispatch:', cleanEmail);
+
     try {
       const { data, error } = await supabase
         .from('subscribers')
@@ -30,22 +32,24 @@ export const Footer: React.FC = () => {
           error.message?.toLowerCase().includes('already') ||
           error.message?.toLowerCase().includes('unique')
         ) {
+          console.log('[Supabase Newsletter] Subscriber already registered:', cleanEmail);
           setMessage('You are already subscribed to The Dispatch.');
           setSubscribed(true);
           setEmail('');
         } else {
-          console.warn('Newsletter subscription notice:', error.message);
+          console.error('[Supabase Newsletter] Subscription error:', error.message);
           setMessage('Welcome to The Dispatch.');
           setSubscribed(true);
           setEmail('');
         }
       } else {
+        console.log('[Supabase Newsletter] Successfully subscribed to The Dispatch:', cleanEmail);
         setMessage('Welcome to The Dispatch.');
         setSubscribed(true);
         setEmail('');
       }
     } catch (err: any) {
-      console.warn('Subscription notice:', err?.message || err);
+      console.error('[Supabase Newsletter] Network error during subscription:', err?.message || err);
       setMessage('Welcome to The Dispatch.');
       setSubscribed(true);
       setEmail('');

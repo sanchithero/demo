@@ -73,6 +73,12 @@ export const InquiryPage: React.FC = () => {
       specialRequests: formData.specialRequests
     };
 
+    console.log('[Supabase Inquiry] Submitting expedition manifest for:', formData.email, {
+      full_name: formData.name,
+      country: formData.country,
+      journey_details: journeyDetails
+    });
+
     try {
       const { data, error } = await supabase.from('inquiries').insert([
         {
@@ -85,10 +91,12 @@ export const InquiryPage: React.FC = () => {
       ]);
 
       if (error) {
-        console.warn('Supabase inquiries insert notice:', error.message);
+        console.error('[Supabase Inquiry] Insertion failed:', error.message);
+      } else {
+        console.log('[Supabase Inquiry] Manifest successfully registered in Supabase:', data);
       }
     } catch (err: any) {
-      console.warn('Inquiry submission notice:', err?.message || err);
+      console.error('[Supabase Inquiry] Network error submitting manifest:', err?.message || err);
     } finally {
       setIsSubmitting(false);
       setSubmitted(true);

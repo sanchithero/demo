@@ -59,6 +59,8 @@ export const LoginPage: React.FC = () => {
     setLoading(true);
     setError('');
 
+    console.log('[Supabase Auth] Attempting client login for:', email);
+
     try {
       const { data, error: authError } = await supabase.auth.signInWithPassword({
         email,
@@ -66,9 +68,13 @@ export const LoginPage: React.FC = () => {
       });
 
       if (authError) {
+        console.error('[Supabase Auth] Login failed:', authError.message);
         setError(authError.message || 'Invalid login credentials. Please verify your email and password.');
+      } else {
+        console.log('[Supabase Auth] Login successful:', data.user?.email);
       }
     } catch (err: any) {
+      console.error('[Supabase Auth] Network error during login:', err?.message || err);
       setError(err?.message || 'An unexpected error occurred during authentication.');
     } finally {
       setLoading(false);

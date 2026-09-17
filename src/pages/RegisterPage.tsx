@@ -34,6 +34,12 @@ export const RegisterPage: React.FC = () => {
     setError('');
     setLoading(true);
 
+    console.log('[Supabase Auth] Attempting client profile registration for:', email, {
+      full_name: name,
+      phone,
+      country
+    });
+
     try {
       const { data, error: authError } = await supabase.auth.signUp({
         email,
@@ -48,14 +54,17 @@ export const RegisterPage: React.FC = () => {
       });
 
       if (authError) {
+        console.error('[Supabase Auth] Registration failed:', authError.message);
         setError(authError.message || 'Unable to create client account. Please verify your details.');
       } else {
+        console.log('[Supabase Auth] Profile created successfully in Supabase:', data.user);
         setRegistered(true);
         setTimeout(() => {
           navigate('/login');
         }, 2200);
       }
     } catch (err: any) {
+      console.error('[Supabase Auth] Network error during registration:', err?.message || err);
       setError(err?.message || 'An unexpected error occurred during profile registration.');
     } finally {
       setLoading(false);
