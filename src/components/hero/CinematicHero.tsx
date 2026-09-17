@@ -55,9 +55,11 @@ export const CinematicHero: React.FC = () => {
       const img = cachedFramesRef.current[frameIdx];
       if (!img || !img.complete || img.naturalWidth === 0) return;
 
-      // Desktop: preserve devicePixelRatio (min-width: 1024px untouched)
-      // Mobile (< 768px): cap dpr to 1.0 to prevent mobile GPU memory exhaustion and retina 3x blowup
-      const dpr = isMobile ? 1 : (window.devicePixelRatio || 1);
+      // Desktop (min-width: 1024px): strictly preserved at window.devicePixelRatio || 1
+      // Mobile (< 768px): High-DPI Canvas Scaling capped at 2 for razor-sharp retina rendering without performance lag
+      const dpr = isMobile
+        ? Math.min(window.devicePixelRatio || 1, 2)
+        : (window.devicePixelRatio || 1);
       const width = cvs.clientWidth;
       const height = cvs.clientHeight;
 
@@ -73,6 +75,10 @@ export const CinematicHero: React.FC = () => {
 
       ctx.save();
       ctx.scale(dpr, dpr);
+
+      // Razor-sharp High-DPI image smoothing settings
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
 
       // Calculate aspect ratio cover
       const imgRatio = img.naturalWidth / img.naturalHeight;
@@ -203,10 +209,9 @@ export const CinematicHero: React.FC = () => {
 
     const updateLoop = () => {
       // Desktop scrub factor is strictly preserved at 0.35 (100% untouched)
-      // Mobile uses a deliberate scrub factor (0.08, equivalent to GSAP scrub: 1.2)
-      // to dampen rapid finger flicks so transitions from airplane window to mountain peak play smoothly
+      // Mobile uses a snappy scrub factor (0.4) for fast, punchy thumb swipes without lagging behind
       const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
-      const scrubFactor = isMobile ? 0.08 : 0.35;
+      const scrubFactor = isMobile ? 0.4 : 0.35;
       currentProgress += (targetProgress - currentProgress) * scrubFactor;
 
       const frameIdx = Math.min(
@@ -557,7 +562,7 @@ export const CinematicHero: React.FC = () => {
           }
 
           #cinematic-hero-section {
-            height: 420vh !important; /* Mobile scroll breathing room (+=320vh end distance for deliberate, slow & smooth scroll) */
+            height: 220vh !important; /* Fast, punchy mobile scroll distance (+=120vh travel distance) */
             touch-action: pan-y;
           }
 

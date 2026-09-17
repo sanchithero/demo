@@ -499,9 +499,9 @@ button {
 }
 
 @media (max-width: 768px) {
-  /* Fix 1: Mobile-scoped scroll pin distance (+=320vh generous breathing room for slow, smooth scrubbing) */
+  /* Fix 1: Fast, responsive mobile-scoped scroll pin distance (+=120vh punchy scroll) */
   #cinematic-hero-section {
-    height: 420vh !important;
+    height: 220vh !important;
     touch-action: pan-y;
   }
   #cinematic-hero-section > div {
