@@ -21,7 +21,7 @@ export const Footer: React.FC = () => {
     console.log('[Supabase Newsletter] Subscribing to The Dispatch:', cleanEmail);
 
     try {
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('subscribers')
         .insert([{ email: cleanEmail }]);
 
@@ -38,9 +38,7 @@ export const Footer: React.FC = () => {
           setEmail('');
         } else {
           console.error('[Supabase Newsletter] Subscription error:', error.message);
-          setMessage('Welcome to The Dispatch.');
-          setSubscribed(true);
-          setEmail('');
+          setMessage(error.message || 'Unable to subscribe to The Dispatch. Please try again.');
         }
       } else {
         console.log('[Supabase Newsletter] Successfully subscribed to The Dispatch:', cleanEmail);
@@ -50,9 +48,7 @@ export const Footer: React.FC = () => {
       }
     } catch (err: any) {
       console.error('[Supabase Newsletter] Network error during subscription:', err?.message || err);
-      setMessage('Welcome to The Dispatch.');
-      setSubscribed(true);
-      setEmail('');
+      setMessage(err?.message || 'Network error subscribing to The Dispatch. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -305,6 +301,11 @@ export const Footer: React.FC = () => {
                   >
                     {loading ? 'Subscribing...' : 'Subscribe to The Dispatch'}
                   </button>
+                  {message && !subscribed && (
+                    <div style={{ color: '#f87171', fontSize: '0.78rem', marginTop: '2px' }}>
+                      {message}
+                    </div>
+                  )}
                 </form>
               )}
             </div>

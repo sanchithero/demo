@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { DESTINATIONS } from '../data/destinations';
 import { supabase } from '../lib/supabaseClient';
-import { CheckCircle2, ArrowRight, ArrowLeft, ShieldCheck, Sparkles, Loader2 } from 'lucide-react';
+import { CheckCircle2, ArrowRight, ArrowLeft, ShieldCheck, Sparkles, Loader2, AlertCircle, X } from 'lucide-react';
 
 export const InquiryPage: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -37,7 +37,8 @@ export const InquiryPage: React.FC = () => {
 
   const [submitted, setSubmitted] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
-  const [submitNotice, setSubmitNotice] = useState<string>('');
+  const [submitError, setSubmitError] = useState<string>('');
+  const [showSuccessModal, setShowSuccessModal] = useState<boolean>(false);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -58,7 +59,7 @@ export const InquiryPage: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-    setSubmitNotice('');
+    setSubmitError('');
 
     const journeyDetails = {
       destination: formData.destination,
@@ -92,15 +93,20 @@ export const InquiryPage: React.FC = () => {
 
       if (error) {
         console.error('[Supabase Inquiry] Insertion failed:', error.message);
-      } else {
-        console.log('[Supabase Inquiry] Manifest successfully registered in Supabase:', data);
+        setSubmitError(error.message || 'Unable to submit expedition manifest. Please try again.');
+        setIsSubmitting(false);
+        return;
       }
-    } catch (err: any) {
-      console.error('[Supabase Inquiry] Network error submitting manifest:', err?.message || err);
-    } finally {
+
+      console.log('[Supabase Inquiry] Manifest successfully registered in Supabase:', data);
       setIsSubmitting(false);
       setSubmitted(true);
+      setShowSuccessModal(true);
       window.scrollTo({ top: 140, behavior: 'smooth' });
+    } catch (err: any) {
+      console.error('[Supabase Inquiry] Network error submitting manifest:', err?.message || err);
+      setSubmitError(err?.message || 'Network error submitting manifest. Please check your connection and try again.');
+      setIsSubmitting(false);
     }
   };
 
@@ -621,6 +627,27 @@ export const InquiryPage: React.FC = () => {
                   </div>
                 )}
 
+                {/* Error Banner */}
+                {submitError && (
+                  <div
+                    style={{
+                      padding: '12px 16px',
+                      borderRadius: 'var(--radius-xs)',
+                      background: 'rgba(239, 68, 68, 0.15)',
+                      border: '1px solid rgba(239, 68, 68, 0.4)',
+                      color: '#f87171',
+                      fontSize: '0.84rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                      marginTop: '8px'
+                    }}
+                  >
+                    <AlertCircle size={16} style={{ flexShrink: 0 }} />
+                    <span>{submitError}</span>
+                  </div>
+                )}
+
                 {/* Back / Next / Submit Controls */}
                 <div
                   style={{
@@ -694,6 +721,112 @@ export const InquiryPage: React.FC = () => {
           )}
         </div>
       </section>
+
+      {/* Confirmation Popup / Modal */}
+      {showSuccessModal && (
+        <div
+          id="inquiry-success-modal"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 999999,
+            background: 'rgba(3, 17, 13, 0.85)',
+            backdropFilter: 'blur(12px)',
+            WebkitBackdropFilter: 'blur(12px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px',
+            animation: 'fadeIn 0.25s ease'
+          }}
+        >
+          <div
+            style={{
+              width: '100%',
+              maxWidth: '520px',
+              background: 'var(--bg-surface)',
+              border: '1px solid var(--accent-primary)',
+              borderRadius: 'var(--radius-lg)',
+              padding: 'clamp(28px, 5vw, 40px)',
+              position: 'relative',
+              boxShadow: '0 25px 70px -15px rgba(0, 0, 0, 0.85)',
+              textAlign: 'center'
+            }}
+          >
+            <button
+              onClick={() => setShowSuccessModal(false)}
+              aria-label="Close Confirmation Modal"
+              style={{
+                position: 'absolute',
+                top: '16px',
+                right: '16px',
+                width: '32px',
+                height: '32px',
+                borderRadius: '50%',
+                background: 'rgba(255, 255, 255, 0.05)',
+                border: '1px solid var(--border-subtle)',
+                color: 'var(--text-secondary)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              <X size={16} />
+            </button>
+
+            <div
+              style={{
+                width: '56px',
+                height: '56px',
+                borderRadius: '50%',
+                background: 'rgba(57, 5, 23, 0.4)',
+                border: '1px solid var(--color-accent-secondary)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'var(--color-accent-secondary)',
+                margin: '0 auto 18px'
+              }}
+            >
+              <CheckCircle2 size={30} />
+            </div>
+
+            <span
+              style={{
+                fontSize: '0.72rem',
+                textTransform: 'uppercase',
+                letterSpacing: '0.15em',
+                color: 'var(--color-accent-secondary)',
+                display: 'block',
+                marginBottom: '6px'
+              }}
+            >
+              Manifest Registered
+            </span>
+
+            <h3 style={{ fontSize: '1.5rem', color: 'var(--text-primary)', fontWeight: 400, marginBottom: '10px' }}>
+              Expedition Dossier Transmitted
+            </h3>
+
+            <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: '22px', fontWeight: 300 }}>
+              Namaste, <strong style={{ color: 'var(--text-primary)' }}>{formData.name}</strong>. Your private consultation for the{' '}
+              <strong style={{ color: 'var(--text-primary)' }}>{formData.destination}</strong> journey has been registered directly with our Senior Concierge in Kathmandu. A curated proposal will be sent to <strong style={{ color: 'var(--text-primary)' }}>{formData.email}</strong> within 24 hours.
+            </p>
+
+            <button
+              onClick={() => setShowSuccessModal(false)}
+              className="btn-primary"
+              style={{ width: '100%', padding: '12px 24px', fontSize: '0.84rem', justifyContent: 'center' }}
+            >
+              <span>View Dossier Summary</span>
+              <ArrowRight size={14} />
+            </button>
+          </div>
+        </div>
+      )}
+
 
       <style>{`
         @keyframes stepFade {
