@@ -493,29 +493,52 @@ button {
 }
 
 @media (min-width: 1024px) {
+  #cinematic-hero-section {
+    height: 380vh !important; /* Desktop interactive scroll distance (+=280vh, scrub: 0.9) */
+  }
+  #cinematic-hero-section > div {
+    position: sticky !important;
+    top: 0 !important;
+    height: 100vh !important;
+  }
+  .hero-desktop-canvas {
+    display: block !important;
+  }
+  .hero-mobile-video {
+    display: none !important;
+  }
   .mobile-hero-vignette {
     display: none !important;
   }
 }
 
-@media (max-width: 768px) {
-  /* Fix 1: Fast, responsive mobile-scoped scroll pin distance (+=120vh punchy scroll) */
+@media (max-width: 1023px) {
+  /* Mobile & Touch: completely unpinned, free natural scroll, standard 100vh */
   #cinematic-hero-section {
-    height: 220vh !important;
-    touch-action: pan-y;
+    height: 100vh !important;
+    height: 100svh !important;
+    position: relative !important;
+    touch-action: pan-y !important;
   }
   #cinematic-hero-section > div {
-    height: 100vh;
-    height: 100svh;
+    position: relative !important;
+    height: 100vh !important;
+    height: 100svh !important;
+  }
+  .hero-desktop-canvas {
+    display: none !important;
+  }
+  .hero-mobile-video {
+    display: block !important;
   }
   .mobile-hero-vignette {
     display: block !important;
   }
 
-  /* Mobile Hero GPU Memory & Hardware Acceleration */
+  /* Hardware Acceleration on Mobile Video & Window */
   .hero-canvas-wrapper,
   #hero-media-window,
-  #hero-media-window canvas {
+  #hero-media-window video {
     transform: translateZ(0) !important;
     -webkit-transform: translateZ(0) !important;
     will-change: transform !important;

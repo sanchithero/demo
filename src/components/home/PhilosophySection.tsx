@@ -14,6 +14,8 @@ export const PhilosophySection: React.FC = () => {
         overflow: 'hidden'
       }}
     >
+      {/* Anchor for #philosophy */}
+      <span id="philosophy" style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none' }} />
       <div className="container-editorial">
         {/* Editorial Subtitle Kicker */}
         <div className="editorial-kicker">

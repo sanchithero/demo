@@ -10,6 +10,15 @@ export const CinematicHero: React.FC = () => {
   const cachedFramesRef = useRef<HTMLImageElement[]>([]);
   const isDrawingRef = useRef<boolean>(false);
   const lastDrawnIndexRef = useRef<number>(-1);
+
+  const autoScrolledRef = useRef<boolean>(false);
+  const userScrolledRef = useRef<boolean>(false);
+
+  const [isDesktop, setIsDesktop] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return true;
+    return window.matchMedia('(min-width: 1024px)').matches;
+  });
+
   const [framesLoadedCount, setFramesLoadedCount] = useState<number>(0);
   const [scrollProgress, setScrollProgress] = useState<number>(0);
   const [activePhraseIndex, setActivePhraseIndex] = useState<number>(0);
@@ -37,89 +46,80 @@ export const CinematicHero: React.FC = () => {
     }
   ];
 
-  // Draw current frame to canvas with aspect-ratio cover, mobile rAF throttling, and GPU memory optimization
+  // Detect desktop vs mobile viewport via matchMedia
+  useEffect(() => {
+    const mql = window.matchMedia('(min-width: 1024px)');
+    const onChange = (e: MediaQueryListEvent) => {
+      setIsDesktop(e.matches);
+    };
+    mql.addEventListener('change', onChange);
+    return () => mql.removeEventListener('change', onChange);
+  }, []);
+
+  // -------------------------------------------------------------
+  // DESKTOP: Canvas Frame Drawer (High-DPI Razor Sharp Scaling)
+  // -------------------------------------------------------------
   const drawFrame = useCallback((frameIdx: number, force = false) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
     if (!force && lastDrawnIndexRef.current === frameIdx) return;
 
-    const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
 
-    const render = () => {
-      const cvs = canvasRef.current;
-      if (!cvs) return;
-      const ctx = cvs.getContext('2d');
-      if (!ctx) return;
+    const img = cachedFramesRef.current[frameIdx];
+    if (!img || !img.complete || img.naturalWidth === 0) return;
 
-      const img = cachedFramesRef.current[frameIdx];
-      if (!img || !img.complete || img.naturalWidth === 0) return;
+    const dpr = window.devicePixelRatio || 1;
+    const width = canvas.clientWidth;
+    const height = canvas.clientHeight;
 
-      // Desktop (min-width: 1024px): strictly preserved at window.devicePixelRatio || 1
-      // Mobile (< 768px): High-DPI Canvas Scaling capped at 2 for razor-sharp retina rendering without performance lag
-      const dpr = isMobile
-        ? Math.min(window.devicePixelRatio || 1, 2)
-        : (window.devicePixelRatio || 1);
-      const width = cvs.clientWidth;
-      const height = cvs.clientHeight;
+    if (width === 0 || height === 0) return;
 
-      if (width === 0 || height === 0) return;
+    const targetW = Math.floor(width * dpr);
+    const targetH = Math.floor(height * dpr);
 
-      const targetW = Math.floor(width * dpr);
-      const targetH = Math.floor(height * dpr);
-
-      if (cvs.width !== targetW || cvs.height !== targetH) {
-        cvs.width = targetW;
-        cvs.height = targetH;
-      }
-
-      ctx.save();
-      ctx.scale(dpr, dpr);
-
-      // Razor-sharp High-DPI image smoothing settings
-      ctx.imageSmoothingEnabled = true;
-      ctx.imageSmoothingQuality = 'high';
-
-      // Calculate aspect ratio cover
-      const imgRatio = img.naturalWidth / img.naturalHeight;
-      const canvasRatio = width / height;
-      let renderW = width;
-      let renderH = height;
-      let offsetX = 0;
-      let offsetY = 0;
-
-      if (canvasRatio > imgRatio) {
-        renderW = width;
-        renderH = width / imgRatio;
-        offsetY = (height - renderH) / 2;
-      } else {
-        renderH = height;
-        renderW = height * imgRatio;
-        offsetX = (width - renderW) / 2;
-      }
-
-      ctx.drawImage(img, offsetX, offsetY, renderW, renderH);
-      ctx.restore();
-
-      lastDrawnIndexRef.current = frameIdx;
-    };
-
-    // Mobile: throttled requestAnimationFrame render loop to prevent redundant paints during fast touch events
-    if (isMobile && !force) {
-      if (!isDrawingRef.current) {
-        requestAnimationFrame(() => {
-          render();
-          isDrawingRef.current = false;
-        });
-        isDrawingRef.current = true;
-      }
-    } else {
-      render();
+    if (canvas.width !== targetW || canvas.height !== targetH) {
+      canvas.width = targetW;
+      canvas.height = targetH;
     }
+
+    ctx.save();
+    ctx.scale(dpr, dpr);
+
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+
+    const imgRatio = img.naturalWidth / img.naturalHeight;
+    const canvasRatio = width / height;
+    let renderW = width;
+    let renderH = height;
+    let offsetX = 0;
+    let offsetY = 0;
+
+    if (canvasRatio > imgRatio) {
+      renderW = width;
+      renderH = width / imgRatio;
+      offsetY = (height - renderH) / 2;
+    } else {
+      renderH = height;
+      renderW = height * imgRatio;
+      offsetX = (width - renderW) / 2;
+    }
+
+    ctx.drawImage(img, offsetX, offsetY, renderW, renderH);
+    ctx.restore();
+
+    lastDrawnIndexRef.current = frameIdx;
   }, []);
 
-  // Preload, pre-decode and cache all 100 frames upfront in memory (avoids runtime decoding lag)
+  // -------------------------------------------------------------
+  // DESKTOP: Preload & Cache 100 Frames for Interactive Scrubbing
+  // -------------------------------------------------------------
   useEffect(() => {
+    if (!isDesktop) return;
+
     const frames: HTMLImageElement[] = [];
     let loaded = 0;
 
@@ -136,7 +136,6 @@ export const CinematicHero: React.FC = () => {
         }
       };
 
-      // Asynchronously pre-decode image off main thread before drawing
       if (typeof img.decode === 'function') {
         img.decode()
           .then(onFrameReady)
@@ -156,7 +155,6 @@ export const CinematicHero: React.FC = () => {
 
     cachedFramesRef.current = frames;
 
-    // Expose global renderFrame for reset scripts
     window.renderFrame = (idx: number) => {
       drawFrame(idx, true);
     };
@@ -174,10 +172,14 @@ export const CinematicHero: React.FC = () => {
     return () => {
       window.removeEventListener('resize', handleResize);
     };
-  }, [drawFrame]);
+  }, [isDesktop, drawFrame, scrollProgress]);
 
-  // Deliberately slower & smoother mobile hero scroll + reset listener
+  // -------------------------------------------------------------
+  // DESKTOP: Interactive Scroll-Scrubbing (+=280vh, scrub: 0.9)
+  // -------------------------------------------------------------
   useEffect(() => {
+    if (!isDesktop) return;
+
     let animationFrameId: number;
     let targetProgress = 0;
     let currentProgress = 0;
@@ -192,26 +194,20 @@ export const CinematicHero: React.FC = () => {
       targetProgress = Math.min(1, Math.max(0, scrolled / scrollTrackHeight));
     };
 
-    // Global "पथ • PāTH" / Home Click Reset listener
-    const handleReset = () => {
+    const handleDesktopReset = () => {
       targetProgress = 0;
       currentProgress = 0;
       setScrollProgress(0);
       setActivePhraseIndex(0);
       lastDrawnIndexRef.current = -1;
       drawFrame(0, true);
-      if (videoRef.current) {
-        videoRef.current.currentTime = 0;
-      }
     };
 
-    window.addEventListener('path:reset-hero-top', handleReset);
+    window.addEventListener('path:reset-hero-top', handleDesktopReset);
 
     const updateLoop = () => {
-      // Desktop scrub factor is strictly preserved at 0.35 (100% untouched)
-      // Mobile uses a snappy scrub factor (0.4) for fast, punchy thumb swipes without lagging behind
-      const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
-      const scrubFactor = isMobile ? 0.4 : 0.35;
+      // Desktop scrub factor: 0.09 (corresponds to smooth, cinematic scrub ~0.9s catchup)
+      const scrubFactor = 0.09;
       currentProgress += (targetProgress - currentProgress) * scrubFactor;
 
       const frameIdx = Math.min(
@@ -219,16 +215,7 @@ export const CinematicHero: React.FC = () => {
         Math.max(0, Math.floor(currentProgress * (TOTAL_FRAMES - 1)))
       );
 
-      // Render cached canvas frame
       drawFrame(frameIdx);
-
-      // Fallback video sync if frames still loading
-      if (videoRef.current && framesLoadedCount < 20) {
-        const targetTime = currentProgress * 10;
-        if (Math.abs(videoRef.current.currentTime - targetTime) > 0.04) {
-          videoRef.current.currentTime = targetTime;
-        }
-      }
 
       setScrollProgress(currentProgress);
 
@@ -246,20 +233,118 @@ export const CinematicHero: React.FC = () => {
 
     return () => {
       window.removeEventListener('scroll', handleScroll);
-      window.removeEventListener('path:reset-hero-top', handleReset);
+      window.removeEventListener('path:reset-hero-top', handleDesktopReset);
       cancelAnimationFrame(animationFrameId);
     };
-  }, [drawFrame, framesLoadedCount, editorialPhrases.length]);
+  }, [isDesktop, drawFrame, editorialPhrases.length]);
 
-  // Frame subtle transformation as user scrolls
-  const framePadding = Math.min(24, scrollProgress * 28);
-  const frameBorderRadius = Math.min(20, scrollProgress * 24);
-  const frameScale = 1 - scrollProgress * 0.015;
-  const frameBorderOpacity = Math.min(0.2, 0.05 + scrollProgress * 0.15);
+  // -------------------------------------------------------------
+  // MOBILE: Auto-Transition to Next Section helper
+  // -------------------------------------------------------------
+  const triggerNextSectionScroll = useCallback(() => {
+    if (userScrolledRef.current || autoScrolledRef.current) return;
+    autoScrolledRef.current = true;
+    const nextSection =
+      document.getElementById('philosophy-section') ||
+      document.getElementById('philosophy') ||
+      document.querySelector('#philosophy-section') ||
+      document.querySelector('#cinematic-hero-section')?.nextElementSibling;
+    if (nextSection) {
+      nextSection.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, []);
+
+  // -------------------------------------------------------------
+  // MOBILE: Auto-Play Video & Auto-Animated 10s Headlines
+  // Completely FREE of scroll-scrubbing and pin-trapping
+  // -------------------------------------------------------------
+  useEffect(() => {
+    if (isDesktop) return;
+
+    autoScrolledRef.current = false;
+    userScrolledRef.current = false;
+
+    // Track user natural scrolling to prevent fighting touch gestures
+    const handleMobileScroll = () => {
+      if (window.scrollY > 80) {
+        userScrolledRef.current = true;
+      }
+    };
+    window.addEventListener('scroll', handleMobileScroll, { passive: true });
+
+    const video = videoRef.current;
+    if (video) {
+      video.currentTime = 0;
+      video.play().catch(() => {
+        // Autoplay with muted is permitted
+      });
+
+      const handleTimeUpdate = () => {
+        const currentTime = video.currentTime;
+        const duration = video.duration || 10;
+        const progress = Math.min(1, Math.max(0, currentTime / duration));
+        setScrollProgress(progress);
+
+        // Timed headline switches across 10-second duration (0-2.5s, 2.5-5.0s, 5.0-7.5s, 7.5-10.0s)
+        const phraseIdx = Math.min(
+          editorialPhrases.length - 1,
+          Math.floor(progress * editorialPhrases.length)
+        );
+        setActivePhraseIndex(phraseIdx);
+
+        if (currentTime >= duration - 0.2 || progress >= 0.99) {
+          triggerNextSectionScroll();
+        }
+      };
+
+      const handleEnded = () => {
+        triggerNextSectionScroll();
+      };
+
+      video.addEventListener('timeupdate', handleTimeUpdate);
+      video.addEventListener('ended', handleEnded);
+
+      // Fallback 10.2s timer for auto-scroll transition
+      const autoScrollTimeout = setTimeout(() => {
+        triggerNextSectionScroll();
+      }, 10200);
+
+      const handleMobileReset = () => {
+        autoScrolledRef.current = false;
+        userScrolledRef.current = false;
+        setScrollProgress(0);
+        setActivePhraseIndex(0);
+        video.currentTime = 0;
+        video.play().catch(() => {});
+      };
+      window.addEventListener('path:reset-hero-top', handleMobileReset);
+
+      return () => {
+        window.removeEventListener('scroll', handleMobileScroll);
+        window.removeEventListener('path:reset-hero-top', handleMobileReset);
+        video.removeEventListener('timeupdate', handleTimeUpdate);
+        video.removeEventListener('ended', handleEnded);
+        clearTimeout(autoScrollTimeout);
+      };
+    }
+
+    return () => {
+      window.removeEventListener('scroll', handleMobileScroll);
+    };
+  }, [isDesktop, triggerNextSectionScroll, editorialPhrases.length]);
+
+  // Frame subtle transformation as user scrolls (desktop only)
+  const framePadding = isDesktop ? Math.min(24, scrollProgress * 28) : 12;
+  const frameBorderRadius = isDesktop ? Math.min(20, scrollProgress * 24) : 14;
+  const frameScale = isDesktop ? 1 - scrollProgress * 0.015 : 1;
+  const frameBorderOpacity = isDesktop ? Math.min(0.2, 0.05 + scrollProgress * 0.15) : 0.1;
 
   const scrollToExpeditions = (e: React.MouseEvent) => {
     e.preventDefault();
-    const target = document.getElementById('featured-trips-section') || document.getElementById('philosophy-section');
+    const target =
+      document.getElementById('featured-trips-section') ||
+      document.getElementById('philosophy-section') ||
+      document.getElementById('philosophy');
     if (target) {
       target.scrollIntoView({ behavior: 'smooth' });
     }
@@ -269,20 +354,22 @@ export const CinematicHero: React.FC = () => {
     <div
       ref={containerRef}
       id="cinematic-hero-section"
+      className="hero-reel-container"
       style={{
         position: 'relative',
-        height: '135vh', // Desktop pinning distance preserved at ~135vh (100% untouched)
+        height: isDesktop ? '380vh' : '100vh', // Desktop +=280vh scrub track; Mobile unpinned 100vh
         backgroundColor: 'var(--bg-primary)'
       }}
     >
-      {/* Pinned Sticky Viewport */}
+      {/* Viewport Wrapper: Sticky on Desktop, Static/Relative on Mobile */}
       <div
+        className="hero-viewport-wrapper"
         style={{
-          position: 'sticky',
+          position: isDesktop ? 'sticky' : 'relative',
           top: 0,
           left: 0,
           width: '100%',
-          height: '100vh',
+          height: isDesktop ? '100vh' : '100%',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -312,13 +399,14 @@ export const CinematicHero: React.FC = () => {
             backgroundColor: 'var(--color-bg-base)'
           }}
         >
-          {/* Preloaded Memory-Cached Canvas Player (Zero dropped frames, 60fps responsive) */}
+          {/* DESKTOP: Preloaded Memory-Cached Interactive Canvas Sequence */}
           <canvas
             ref={canvasRef}
+            className="hero-desktop-canvas"
             style={{
               width: '100%',
               height: '100%',
-              display: 'block',
+              display: isDesktop ? 'block' : 'none',
               filter: 'brightness(0.92) contrast(1.05)',
               position: 'relative',
               zIndex: 2,
@@ -329,26 +417,25 @@ export const CinematicHero: React.FC = () => {
             }}
           />
 
-          {/* Fallback video element (in case frames are still fetching) */}
-          {framesLoadedCount < 50 && (
-            <video
-              ref={videoRef}
-              className="hero-video-element"
-              src="/assets/video/hero.mp4"
-              playsInline
-              muted
-              preload="auto"
-              style={{
-                position: 'absolute',
-                inset: 0,
-                width: '100%',
-                height: '100%',
-                objectFit: 'cover',
-                display: 'block',
-                zIndex: 1
-              }}
-            />
-          )}
+          {/* MOBILE: Standalone 10s Autoplay HD Video (Zero GPU Frame-Scrub Choke) */}
+          <video
+            ref={videoRef}
+            className="hero-video-element hero-mobile-video"
+            src="/assets/video/hero.mp4"
+            autoPlay
+            muted
+            playsInline
+            preload="auto"
+            style={{
+              position: 'absolute',
+              inset: 0,
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+              display: isDesktop ? 'none' : 'block',
+              zIndex: 2
+            }}
+          />
 
           {/* Cinematic Scrim allowing landscape to shine */}
           <div
@@ -414,14 +501,14 @@ export const CinematicHero: React.FC = () => {
                     width: `${scrollProgress * 100}%`,
                     height: '100%',
                     backgroundColor: 'var(--color-accent-secondary)',
-                    transition: 'width 0.08s linear'
+                    transition: isDesktop ? 'width 0.08s linear' : 'width 0.25s ease-out'
                   }}
                 />
               </div>
             </div>
           </div>
 
-          {/* Hero Editorial Typography & Single Primary CTA */}
+          {/* Hero Editorial Typography & Primary CTA */}
           <div
             id="hero-editorial-content"
             style={{
@@ -438,9 +525,9 @@ export const CinematicHero: React.FC = () => {
               return (
                 <div
                   key={phrase.title}
+                  className={isActive ? 'hero-phrase-active' : 'hero-phrase-inactive'}
                   style={{
-                    display: isActive ? 'block' : 'none',
-                    animation: 'heroTextFadeIn 0.35s cubic-bezier(0.16, 1, 0.3, 1)'
+                    display: isActive ? 'block' : 'none'
                   }}
                 >
                   <span
@@ -458,7 +545,7 @@ export const CinematicHero: React.FC = () => {
                   </span>
 
                   <h1
-                    className="editorial-title-lg"
+                    className="editorial-title-lg hero-headline-text"
                     style={{
                       color: 'var(--color-text-main)',
                       marginBottom: '16px',
@@ -469,7 +556,7 @@ export const CinematicHero: React.FC = () => {
                   </h1>
 
                   <p
-                    className="editorial-lead"
+                    className="editorial-lead hero-sub-text"
                     style={{
                       color: 'var(--color-text-muted)',
                       marginBottom: '28px',
@@ -482,7 +569,7 @@ export const CinematicHero: React.FC = () => {
               );
             })}
 
-            {/* Single Primary CTA */}
+            {/* Single Primary CTA & Scroll Indicator */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
               <button
                 onClick={scrollToExpeditions}
@@ -509,7 +596,7 @@ export const CinematicHero: React.FC = () => {
                   opacity: 0.85
                 }}
               >
-                <span>Scroll to Fly</span>
+                <span>{isDesktop ? 'Scroll to Fly' : 'Explore Nepal'}</span>
                 <ChevronDown size={14} color="var(--color-accent-secondary)" style={{ animation: 'bounceDown 2s infinite' }} />
               </div>
             </div>
@@ -518,11 +605,12 @@ export const CinematicHero: React.FC = () => {
       </div>
 
       <style>{`
-        @keyframes heroTextFadeIn {
+        /* Smooth Glide Upward & Fade In Headline Animation */
+        @keyframes heroGlideIn {
           from {
             opacity: 0;
-            transform: translateY(10px);
-            filter: blur(3px);
+            transform: translateY(24px);
+            filter: blur(5px);
           }
           to {
             opacity: 1;
@@ -530,19 +618,39 @@ export const CinematicHero: React.FC = () => {
             filter: blur(0px);
           }
         }
+
+        .hero-phrase-active {
+          animation: heroGlideIn 0.65s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
         @keyframes bounceDown {
           0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
           40% { transform: translateY(4px); }
           60% { transform: translateY(2px); }
         }
 
+        /* Desktop Viewports (min-width: 1024px) */
         @media (min-width: 1024px) {
+          #cinematic-hero-section {
+            height: 380vh !important; /* +=280vh scrub track */
+          }
+          .hero-viewport-wrapper {
+            position: sticky !important;
+            top: 0 !important;
+            height: 100vh !important;
+          }
+          .hero-desktop-canvas {
+            display: block !important;
+          }
+          .hero-mobile-video {
+            display: none !important;
+          }
           .mobile-hero-vignette {
             display: none !important;
           }
         }
 
-        /* Mobile & Tablet Scoped (Zero Desktop Impact) */
+        /* Mobile & Tablet Scoped (Zero Pin Trapping, Zero Scroll Resistance) */
         @media (max-width: 1023px) {
           #cinematic-hero-section,
           #cinematic-hero-section *,
@@ -554,26 +662,35 @@ export const CinematicHero: React.FC = () => {
             -webkit-user-select: none !important;
             -webkit-touch-callout: none !important;
           }
-        }
 
-        @media (max-width: 768px) {
+          #cinematic-hero-section {
+            height: 100vh !important;
+            height: 100svh !important;
+            position: relative !important;
+            touch-action: pan-y !important;
+          }
+
+          .hero-viewport-wrapper {
+            position: relative !important;
+            height: 100vh !important;
+            height: 100svh !important;
+          }
+
+          .hero-desktop-canvas {
+            display: none !important;
+          }
+
+          .hero-mobile-video {
+            display: block !important;
+          }
+
           .mobile-hero-vignette {
             display: block !important;
           }
 
-          #cinematic-hero-section {
-            height: 220vh !important; /* Fast, punchy mobile scroll distance (+=120vh travel distance) */
-            touch-action: pan-y;
-          }
-
-          #cinematic-hero-section > div {
-            height: 100vh;
-            height: 100svh;
-          }
-
           .hero-canvas-wrapper,
           #hero-media-window,
-          #hero-media-window canvas {
+          #hero-media-window video {
             transform: translateZ(0) !important;
             -webkit-transform: translateZ(0) !important;
             will-change: transform !important;
