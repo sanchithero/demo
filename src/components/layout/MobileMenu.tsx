@@ -18,14 +18,14 @@ export const MobileMenu: React.FC<MobileMenuProps> = ({ isOpen, onClose, links }
       style={{
         position: 'fixed',
         inset: 0,
-        zIndex: 999,
-        backgroundColor: 'rgba(3, 17, 13, 0.98)',
-        backdropFilter: 'blur(30px)',
-        WebkitBackdropFilter: 'blur(30px)',
+        zIndex: 99999,
+        background: '#03110D',
+        backgroundColor: '#03110D',
+        opacity: 1,
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'space-between',
-        padding: '24px 28px 40px',
+        padding: '24px 28px max(24px, env(safe-area-inset-bottom))',
         overflowY: 'auto',
         animation: 'fadeInMenu 0.35s ease'
       }}
@@ -135,6 +135,16 @@ export const MobileMenu: React.FC<MobileMenuProps> = ({ isOpen, onClose, links }
         @keyframes fadeInMenu {
           from { opacity: 0; transform: scale(0.99); }
           to { opacity: 1; transform: scale(1); }
+        }
+
+        @media (max-width: 1023px) {
+          #mobile-navigation-overlay {
+            background: #03110D !important;
+            background-color: #03110D !important;
+            opacity: 1 !important;
+            z-index: 99999 !important;
+            padding-bottom: max(24px, env(safe-area-inset-bottom)) !important;
+          }
         }
       `}</style>
     </div>

@@ -465,3 +465,78 @@ button {
     scroll-behavior: auto !important;
   }
 }
+
+/* ==========================================================================
+   Mobile & Tablet Scoped Optimizations (CRITICAL: min-width: 1024px untouched)
+   ========================================================================== */
+
+@media (max-width: 1023px) {
+  /* Fix 1: Touch & text selection suppression on mobile/tablet */
+  #cinematic-hero-section,
+  #cinematic-hero-section *,
+  .hero-reel-header,
+  .hero-coordinates,
+  #hero-editorial-content {
+    user-select: none !important;
+    -webkit-user-select: none !important;
+    -webkit-touch-callout: none !important;
+  }
+
+  /* Fix 3: Solid mobile drawer background & safe-area padding */
+  #mobile-navigation-overlay {
+    background: #03110D !important;
+    background-color: #03110D !important;
+    opacity: 1 !important;
+    z-index: 99999 !important;
+    padding-bottom: max(24px, env(safe-area-inset-bottom)) !important;
+  }
+}
+
+@media (max-width: 768px) {
+  /* Fix 2: Mobile-scoped scroll pin distance & touch navigation */
+  #cinematic-hero-section {
+    height: 115vh !important;
+    touch-action: pan-y;
+  }
+  #cinematic-hero-section > div {
+    height: 100vh;
+    height: 100svh;
+  }
+
+  /* Fix 4: Eliminate mobile blank gaps & layout collapse during touch scroll */
+  .section-py {
+    padding-top: clamp(50px, 8vw, 76px);
+    padding-bottom: clamp(50px, 8vw, 76px);
+  }
+  .trip-card-editorial {
+    min-height: 420px;
+    contain: content;
+  }
+  .card-luxury {
+    min-height: 180px;
+  }
+  .journal-card {
+    min-height: 420px;
+    contain: content;
+  }
+  .cinematic-media-frame {
+    min-height: 300px;
+  }
+
+  /* Fix 5: Mobile portrait cropping (centered faces) */
+  .team-portrait-img {
+    object-fit: cover !important;
+    object-position: center 20% !important;
+  }
+
+  /* Fix 6: Mobile form centering (Inquiry & Client Portals) */
+  .inquiry-card-wrapper,
+  .portal-card-wrapper {
+    min-height: calc(100svh - 100px) !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+    padding-bottom: 2rem !important;
+  }
+}
+

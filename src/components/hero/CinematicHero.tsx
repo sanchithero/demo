@@ -133,8 +133,10 @@ export const CinematicHero: React.FC = () => {
     };
 
     const updateLoop = () => {
-      // Snappy scrub smoothing factor 0.35 (instead of sluggish 0.16)
-      currentProgress += (targetProgress - currentProgress) * 0.35;
+      // Snappy scrub smoothing factor: 0.35 on desktop, 0.6 on mobile for 1-2 thumb swipe response
+      const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+      const scrubFactor = isMobile ? 0.6 : 0.35;
+      currentProgress += (targetProgress - currentProgress) * scrubFactor;
 
       const frameIdx = Math.min(
         TOTAL_FRAMES - 1,
@@ -292,12 +294,12 @@ export const CinematicHero: React.FC = () => {
               zIndex: 10
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div className="hero-reel-header" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--color-accent-secondary)' }} />
               <span className="font-display">HIMALAYAN AERIAL REEL • KATHMANDU TO MUSTANG</span>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div className="hero-coordinates" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               <span style={{ fontVariantNumeric: 'tabular-nums', color: 'var(--color-text-main)', opacity: 0.9 }}>
                 {(scrollProgress * 10).toFixed(1)}s / 10.0s
               </span>
@@ -435,6 +437,30 @@ export const CinematicHero: React.FC = () => {
           0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
           40% { transform: translateY(4px); }
           60% { transform: translateY(2px); }
+        }
+
+        /* Mobile & Tablet Scoped (Zero Desktop Impact) */
+        @media (max-width: 1023px) {
+          #cinematic-hero-section,
+          #cinematic-hero-section *,
+          .hero-reel-header,
+          .hero-coordinates,
+          #hero-editorial-content {
+            user-select: none !important;
+            -webkit-user-select: none !important;
+            -webkit-touch-callout: none !important;
+          }
+        }
+
+        @media (max-width: 768px) {
+          #cinematic-hero-section {
+            height: 115vh !important; /* 50-60% reduced pin/scroll distance from 135vh down to 115vh */
+            touch-action: pan-y;
+          }
+          #cinematic-hero-section > div {
+            height: 100vh;
+            height: 100svh;
+          }
         }
       `}</style>
     </div>

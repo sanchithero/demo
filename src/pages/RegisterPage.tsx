@@ -45,6 +45,7 @@ export const RegisterPage: React.FC = () => {
       }}
     >
       <div
+        className="portal-card-wrapper"
         style={{
           width: '100%',
           maxWidth: '460px',
@@ -242,6 +243,18 @@ export const RegisterPage: React.FC = () => {
           </form>
         )}
       </div>
+
+      <style>{`
+        @media (max-width: 768px) {
+          .portal-card-wrapper {
+            min-height: calc(100svh - 100px) !important;
+            display: flex !important;
+            flex-direction: column !important;
+            justify-content: center !important;
+            padding-bottom: 2rem !important;
+          }
+        }
+      `}</style>
     </main>
   );
 };

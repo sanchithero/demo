@@ -246,6 +246,14 @@ export const AboutPage: React.FC = () => {
         .team-member-card:hover .team-portrait-img {
           transform: scale(1.03);
         }
+
+        /* Mobile-scoped portrait cropping (Zero Desktop Alteration) */
+        @media (max-width: 768px) {
+          .team-portrait-img {
+            object-fit: cover !important;
+            object-position: center 20% !important;
+          }
+        }
       `}</style>
     </main>
   );

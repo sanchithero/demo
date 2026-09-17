@@ -85,7 +85,7 @@ export const InquiryPage: React.FC = () => {
 
       {/* Multi-Step Concierge Form Section */}
       <section className="section-py">
-        <div className="container-narrow">
+        <div className="container-narrow inquiry-card-wrapper">
           {submitted ? (
             /* Success Manifest */
             <div
@@ -657,6 +657,15 @@ export const InquiryPage: React.FC = () => {
         .inquiry-input option {
           background: #16302B;
           color: #E0E0E0;
+        }
+        @media (max-width: 768px) {
+          .inquiry-card-wrapper {
+            min-height: calc(100svh - 100px) !important;
+            display: flex !important;
+            flex-direction: column !important;
+            justify-content: center !important;
+            padding-bottom: 2rem !important;
+          }
         }
       `}</style>
     </main>
