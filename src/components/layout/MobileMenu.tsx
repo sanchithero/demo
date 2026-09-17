@@ -3,6 +3,8 @@ import { NavLink, Link } from 'react-router-dom';
 import { X, MapPin, Mail, User } from 'lucide-react';
 import { BrandLogo } from '../common/BrandLogo';
 
+import { resetHeroToTop } from '../../utils/scrollReset';
+
 interface MobileMenuProps {
   isOpen: boolean;
   onClose: () => void;
@@ -11,6 +13,14 @@ interface MobileMenuProps {
 
 export const MobileMenu: React.FC<MobileMenuProps> = ({ isOpen, onClose, links }) => {
   if (!isOpen) return null;
+
+  const handleHomeReset = (e?: React.MouseEvent) => {
+    onClose(); // Automatically close the drawer immediately
+    if (window.location.pathname === '/') {
+      if (e) e.preventDefault();
+      resetHeroToTop();
+    }
+  };
 
   return (
     <div
@@ -40,7 +50,13 @@ export const MobileMenu: React.FC<MobileMenuProps> = ({ isOpen, onClose, links }
           paddingBottom: '20px'
         }}
       >
-        <BrandLogo size="md" variant="light" />
+        <BrandLogo
+          size="md"
+          variant="light"
+          onClick={() => {
+            handleHomeReset();
+          }}
+        />
 
         <button
           onClick={onClose}
@@ -64,29 +80,40 @@ export const MobileMenu: React.FC<MobileMenuProps> = ({ isOpen, onClose, links }
 
       {/* Navigation Links */}
       <nav style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '36px 0' }}>
-        {links.map((link, idx) => (
-          <NavLink
-            key={link.path}
-            to={link.path}
-            onClick={onClose}
-            style={({ isActive }) => ({
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              fontSize: 'clamp(1.6rem, 5.5vw, 2.2rem)',
-              fontFamily: 'var(--font-serif)',
-              color: isActive ? 'var(--color-accent-secondary)' : 'var(--color-text-main)',
-              textDecoration: 'none',
-              borderBottom: '1px solid var(--color-border)',
-              paddingBottom: '12px'
-            })}
-          >
-            <span>{link.label}</span>
-            <span style={{ fontSize: '0.8rem', fontFamily: 'var(--font-sans)', color: 'var(--color-accent-secondary)' }}>
-              0{idx + 1}
-            </span>
-          </NavLink>
-        ))}
+        {links.map((link, idx) => {
+          const isHome = link.path === '/';
+          return (
+            <NavLink
+              key={link.path}
+              to={link.path}
+              onClick={(e) => {
+                if (isHome) {
+                  handleHomeReset(e);
+                } else {
+                  onClose();
+                }
+              }}
+              className={`mobile-nav-link ${isHome ? 'nav-link-home' : ''}`}
+              data-home-link={isHome ? 'true' : undefined}
+              style={({ isActive }) => ({
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                fontSize: 'clamp(1.6rem, 5.5vw, 2.2rem)',
+                fontFamily: 'var(--font-serif)',
+                color: isActive ? 'var(--color-accent-secondary)' : 'var(--color-text-main)',
+                textDecoration: 'none',
+                borderBottom: '1px solid var(--color-border)',
+                paddingBottom: '12px'
+              })}
+            >
+              <span>{link.label}</span>
+              <span style={{ fontSize: '0.8rem', fontFamily: 'var(--font-sans)', color: 'var(--color-accent-secondary)' }}>
+                0{idx + 1}
+              </span>
+            </NavLink>
+          );
+        })}
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginTop: '16px' }}>
           <Link

@@ -8,6 +8,8 @@ export const CinematicHero: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const cachedFramesRef = useRef<HTMLImageElement[]>([]);
+  const isDrawingRef = useRef<boolean>(false);
+  const lastDrawnIndexRef = useRef<number>(-1);
   const [framesLoadedCount, setFramesLoadedCount] = useState<number>(0);
   const [scrollProgress, setScrollProgress] = useState<number>(0);
   const [activePhraseIndex, setActivePhraseIndex] = useState<number>(0);
@@ -35,51 +37,82 @@ export const CinematicHero: React.FC = () => {
     }
   ];
 
-  // Draw current frame to canvas with aspect-ratio cover
-  const drawFrame = useCallback((frameIdx: number) => {
+  // Draw current frame to canvas with aspect-ratio cover, mobile rAF throttling, and GPU memory optimization
+  const drawFrame = useCallback((frameIdx: number, force = false) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
 
-    const img = cachedFramesRef.current[frameIdx];
-    if (!img || !img.complete || img.naturalWidth === 0) return;
+    if (!force && lastDrawnIndexRef.current === frameIdx) return;
 
-    const dpr = window.devicePixelRatio || 1;
-    const width = canvas.clientWidth;
-    const height = canvas.clientHeight;
+    const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
 
-    if (canvas.width !== width * dpr || canvas.height !== height * dpr) {
-      canvas.width = width * dpr;
-      canvas.height = height * dpr;
-    }
+    const render = () => {
+      const cvs = canvasRef.current;
+      if (!cvs) return;
+      const ctx = cvs.getContext('2d');
+      if (!ctx) return;
 
-    ctx.save();
-    ctx.scale(dpr, dpr);
+      const img = cachedFramesRef.current[frameIdx];
+      if (!img || !img.complete || img.naturalWidth === 0) return;
 
-    // Calculate aspect ratio cover
-    const imgRatio = img.naturalWidth / img.naturalHeight;
-    const canvasRatio = width / height;
-    let renderW = width;
-    let renderH = height;
-    let offsetX = 0;
-    let offsetY = 0;
+      // Desktop: preserve devicePixelRatio (min-width: 1024px untouched)
+      // Mobile (< 768px): cap dpr to 1.0 to prevent mobile GPU memory exhaustion and retina 3x blowup
+      const dpr = isMobile ? 1 : (window.devicePixelRatio || 1);
+      const width = cvs.clientWidth;
+      const height = cvs.clientHeight;
 
-    if (canvasRatio > imgRatio) {
-      renderW = width;
-      renderH = width / imgRatio;
-      offsetY = (height - renderH) / 2;
+      if (width === 0 || height === 0) return;
+
+      const targetW = Math.floor(width * dpr);
+      const targetH = Math.floor(height * dpr);
+
+      if (cvs.width !== targetW || cvs.height !== targetH) {
+        cvs.width = targetW;
+        cvs.height = targetH;
+      }
+
+      ctx.save();
+      ctx.scale(dpr, dpr);
+
+      // Calculate aspect ratio cover
+      const imgRatio = img.naturalWidth / img.naturalHeight;
+      const canvasRatio = width / height;
+      let renderW = width;
+      let renderH = height;
+      let offsetX = 0;
+      let offsetY = 0;
+
+      if (canvasRatio > imgRatio) {
+        renderW = width;
+        renderH = width / imgRatio;
+        offsetY = (height - renderH) / 2;
+      } else {
+        renderH = height;
+        renderW = height * imgRatio;
+        offsetX = (width - renderW) / 2;
+      }
+
+      ctx.drawImage(img, offsetX, offsetY, renderW, renderH);
+      ctx.restore();
+
+      lastDrawnIndexRef.current = frameIdx;
+    };
+
+    // Mobile: throttled requestAnimationFrame render loop to prevent redundant paints during fast touch events
+    if (isMobile && !force) {
+      if (!isDrawingRef.current) {
+        requestAnimationFrame(() => {
+          render();
+          isDrawingRef.current = false;
+        });
+        isDrawingRef.current = true;
+      }
     } else {
-      renderH = height;
-      renderW = height * imgRatio;
-      offsetX = (width - renderW) / 2;
+      render();
     }
-
-    ctx.drawImage(img, offsetX, offsetY, renderW, renderH);
-    ctx.restore();
   }, []);
 
-  // Preload and cache all 100 frames upfront in memory
+  // Preload, pre-decode and cache all 100 frames upfront in memory (avoids runtime decoding lag)
   useEffect(() => {
     const frames: HTMLImageElement[] = [];
     let loaded = 0;
@@ -89,25 +122,46 @@ export const CinematicHero: React.FC = () => {
       const frameNum = String(i).padStart(3, '0');
       img.src = `/assets/video/frames/frame_${frameNum}.webp`;
 
-      img.onload = () => {
+      const onFrameReady = () => {
         loaded++;
         setFramesLoadedCount(loaded);
         if (i === 0) {
-          drawFrame(0);
+          drawFrame(0, true);
         }
       };
+
+      // Asynchronously pre-decode image off main thread before drawing
+      if (typeof img.decode === 'function') {
+        img.decode()
+          .then(onFrameReady)
+          .catch(() => {
+            if (img.complete) {
+              onFrameReady();
+            } else {
+              img.onload = onFrameReady;
+            }
+          });
+      } else {
+        (img as HTMLImageElement).onload = onFrameReady;
+      }
 
       frames.push(img);
     }
 
     cachedFramesRef.current = frames;
 
+    // Expose global renderFrame for reset scripts
+    window.renderFrame = (idx: number) => {
+      drawFrame(idx, true);
+    };
+
     const handleResize = () => {
+      lastDrawnIndexRef.current = -1;
       const idx = Math.min(
         TOTAL_FRAMES - 1,
         Math.max(0, Math.floor(scrollProgress * (TOTAL_FRAMES - 1)))
       );
-      drawFrame(idx);
+      drawFrame(idx, true);
     };
 
     window.addEventListener('resize', handleResize);
@@ -116,7 +170,7 @@ export const CinematicHero: React.FC = () => {
     };
   }, [drawFrame]);
 
-  // High-performance, snappy scroll scrubbing (scrub smoothing ~0.35, pinning 130vh)
+  // Deliberately slower & smoother mobile hero scroll + reset listener
   useEffect(() => {
     let animationFrameId: number;
     let targetProgress = 0;
@@ -132,11 +186,27 @@ export const CinematicHero: React.FC = () => {
       targetProgress = Math.min(1, Math.max(0, scrolled / scrollTrackHeight));
     };
 
+    // Global "पथ • PāTH" / Home Click Reset listener
+    const handleReset = () => {
+      targetProgress = 0;
+      currentProgress = 0;
+      setScrollProgress(0);
+      setActivePhraseIndex(0);
+      lastDrawnIndexRef.current = -1;
+      drawFrame(0, true);
+      if (videoRef.current) {
+        videoRef.current.currentTime = 0;
+      }
+    };
+
+    window.addEventListener('path:reset-hero-top', handleReset);
+
     const updateLoop = () => {
       // Desktop scrub factor is strictly preserved at 0.35 (100% untouched)
-      // Mobile uses a dampening factor (0.14, equivalent to GSAP scrub: 1) to prevent rapid finger flicks from skipping frames
+      // Mobile uses a deliberate scrub factor (0.08, equivalent to GSAP scrub: 1.2)
+      // to dampen rapid finger flicks so transitions from airplane window to mountain peak play smoothly
       const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
-      const scrubFactor = isMobile ? 0.14 : 0.35;
+      const scrubFactor = isMobile ? 0.08 : 0.35;
       currentProgress += (targetProgress - currentProgress) * scrubFactor;
 
       const frameIdx = Math.min(
@@ -171,6 +241,7 @@ export const CinematicHero: React.FC = () => {
 
     return () => {
       window.removeEventListener('scroll', handleScroll);
+      window.removeEventListener('path:reset-hero-top', handleReset);
       cancelAnimationFrame(animationFrameId);
     };
   }, [drawFrame, framesLoadedCount, editorialPhrases.length]);
@@ -195,7 +266,7 @@ export const CinematicHero: React.FC = () => {
       id="cinematic-hero-section"
       style={{
         position: 'relative',
-        height: '135vh', // Pinning distance reduced by 65% (down to ~130vh) for snappy scroll
+        height: '135vh', // Desktop pinning distance preserved at ~135vh (100% untouched)
         backgroundColor: 'var(--bg-primary)'
       }}
     >
@@ -216,16 +287,19 @@ export const CinematicHero: React.FC = () => {
           boxSizing: 'border-box'
         }}
       >
-        {/* Cinematic Media Window Frame */}
+        {/* Cinematic Media Window Frame with GPU Hardware Acceleration */}
         <div
           id="hero-media-window"
-          className="cinematic-media-frame"
+          className="cinematic-media-frame hero-canvas-wrapper"
           style={{
             position: 'relative',
             width: '100%',
             height: '100%',
             borderRadius: `${frameBorderRadius}px`,
-            transform: `scale(${frameScale})`,
+            transform: `scale(${frameScale}) translateZ(0)`,
+            willChange: 'transform',
+            backfaceVisibility: 'hidden',
+            WebkitBackfaceVisibility: 'hidden',
             transition: 'border-radius 0.15s ease-out, transform 0.15s ease-out',
             border: `1px solid rgba(163, 133, 96, ${frameBorderOpacity * 0.3})`,
             boxShadow: '0 30px 80px -20px rgba(0, 0, 0, 0.75)',
@@ -242,7 +316,11 @@ export const CinematicHero: React.FC = () => {
               display: 'block',
               filter: 'brightness(0.92) contrast(1.05)',
               position: 'relative',
-              zIndex: 2
+              zIndex: 2,
+              transform: 'translateZ(0)',
+              willChange: 'transform',
+              backfaceVisibility: 'hidden',
+              WebkitBackfaceVisibility: 'hidden'
             }}
           />
 
@@ -250,6 +328,7 @@ export const CinematicHero: React.FC = () => {
           {framesLoadedCount < 50 && (
             <video
               ref={videoRef}
+              className="hero-video-element"
               src="/assets/video/hero.mp4"
               playsInline
               muted
@@ -478,13 +557,23 @@ export const CinematicHero: React.FC = () => {
           }
 
           #cinematic-hero-section {
-            height: 320vh !important; /* Mobile scroll breathing room (+=220vh end distance) */
+            height: 420vh !important; /* Mobile scroll breathing room (+=320vh end distance for deliberate, slow & smooth scroll) */
             touch-action: pan-y;
           }
 
           #cinematic-hero-section > div {
             height: 100vh;
             height: 100svh;
+          }
+
+          .hero-canvas-wrapper,
+          #hero-media-window,
+          #hero-media-window canvas {
+            transform: translateZ(0) !important;
+            -webkit-transform: translateZ(0) !important;
+            will-change: transform !important;
+            backface-visibility: hidden !important;
+            -webkit-backface-visibility: hidden !important;
           }
 
           #hero-editorial-content {

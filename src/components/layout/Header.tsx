@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { NavLink, Link, useLocation } from 'react-router-dom';
 import { BrandLogo } from '../common/BrandLogo';
 import { useAmbientAudio } from '../../context/AudioContext';
+import { resetHeroToTop } from '../../utils/scrollReset';
 import { Volume2, VolumeX, Menu, User, ArrowUpRight } from 'lucide-react';
 import { MobileMenu } from './MobileMenu';
 
@@ -21,6 +22,22 @@ export const Header: React.FC = () => {
 
   useEffect(() => {
     setMobileMenuOpen(false);
+  }, [location.pathname]);
+
+  // Global listener for any brand-logo or Home links across the page
+  useEffect(() => {
+    const handleGlobalHomeClick = (e: MouseEvent) => {
+      const target = (e.target as HTMLElement).closest<HTMLElement>(
+        '.brand-logo, a[href="#home"], .nav-link-home, #brand-logo-link, [data-home-link]'
+      );
+      if (target && location.pathname === '/') {
+        e.preventDefault();
+        setMobileMenuOpen(false);
+        resetHeroToTop();
+      }
+    };
+    document.addEventListener('click', handleGlobalHomeClick);
+    return () => document.removeEventListener('click', handleGlobalHomeClick);
   }, [location.pathname]);
 
   const navLinks = [
@@ -65,7 +82,15 @@ export const Header: React.FC = () => {
         >
           {/* Left: Brand Wordmark */}
           <div style={{ display: 'flex', alignItems: 'center' }}>
-            <BrandLogo size="md" variant="light" />
+            <BrandLogo
+              size="md"
+              variant="light"
+              onClick={() => {
+                if (location.pathname === '/') {
+                  resetHeroToTop();
+                }
+              }}
+            />
           </div>
 
           {/* Desktop Navigation Links */}
@@ -78,44 +103,54 @@ export const Header: React.FC = () => {
             }}
             className="desktop-nav-container"
           >
-            {navLinks.map((link) => (
-              <NavLink
-                key={link.path}
-                to={link.path}
-                style={({ isActive }) => ({
-                  position: 'relative',
-                  fontSize: '0.8rem',
-                  fontFamily: 'var(--font-sans)',
-                  fontWeight: isActive ? 600 : 400,
-                  letterSpacing: '0.12em',
-                  textTransform: 'uppercase',
-                  color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
-                  padding: '6px 0',
-                  transition: 'color 0.2s ease'
-                })}
-                className="nav-link-item"
-              >
-                {({ isActive }) => (
-                  <>
-                    <span>{link.label}</span>
-                    <span
-                      style={{
-                        position: 'absolute',
-                        bottom: 0,
-                        left: 0,
-                        width: '100%',
-                        height: '1.5px',
-                        backgroundColor: 'var(--color-accent-secondary)',
-                        transform: isActive ? 'scaleX(1)' : 'scaleX(0)',
-                        transformOrigin: 'left',
-                        transition: 'transform 0.3s ease'
-                      }}
-                      className="nav-link-indicator"
-                    />
-                  </>
-                )}
-              </NavLink>
-            ))}
+            {navLinks.map((link) => {
+              const isHome = link.path === '/';
+              return (
+                <NavLink
+                  key={link.path}
+                  to={link.path}
+                  onClick={(e) => {
+                    if (isHome && location.pathname === '/') {
+                      e.preventDefault();
+                      resetHeroToTop();
+                    }
+                  }}
+                  style={({ isActive }) => ({
+                    position: 'relative',
+                    fontSize: '0.8rem',
+                    fontFamily: 'var(--font-sans)',
+                    fontWeight: isActive ? 600 : 400,
+                    letterSpacing: '0.12em',
+                    textTransform: 'uppercase',
+                    color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
+                    padding: '6px 0',
+                    transition: 'color 0.2s ease'
+                  })}
+                  className={`nav-link-item ${isHome ? 'nav-link-home' : ''}`}
+                  data-home-link={isHome ? 'true' : undefined}
+                >
+                  {({ isActive }) => (
+                    <>
+                      <span>{link.label}</span>
+                      <span
+                        style={{
+                          position: 'absolute',
+                          bottom: 0,
+                          left: 0,
+                          width: '100%',
+                          height: '1.5px',
+                          backgroundColor: 'var(--color-accent-secondary)',
+                          transform: isActive ? 'scaleX(1)' : 'scaleX(0)',
+                          transformOrigin: 'left',
+                          transition: 'transform 0.3s ease'
+                        }}
+                        className="nav-link-indicator"
+                      />
+                    </>
+                  )}
+                </NavLink>
+              );
+            })}
           </nav>
 
           {/* Right Actions: Subtle Sound, Inquiry, Discreet Account Icon, Discreet Plan CTA */}

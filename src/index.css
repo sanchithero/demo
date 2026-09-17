@@ -499,9 +499,9 @@ button {
 }
 
 @media (max-width: 768px) {
-  /* Fix 1: Mobile-scoped scroll pin distance (+=220vh breathing room) */
+  /* Fix 1: Mobile-scoped scroll pin distance (+=320vh generous breathing room for slow, smooth scrubbing) */
   #cinematic-hero-section {
-    height: 320vh !important;
+    height: 420vh !important;
     touch-action: pan-y;
   }
   #cinematic-hero-section > div {
@@ -510,6 +510,17 @@ button {
   }
   .mobile-hero-vignette {
     display: block !important;
+  }
+
+  /* Mobile Hero GPU Memory & Hardware Acceleration */
+  .hero-canvas-wrapper,
+  #hero-media-window,
+  #hero-media-window canvas {
+    transform: translateZ(0) !important;
+    -webkit-transform: translateZ(0) !important;
+    will-change: transform !important;
+    backface-visibility: hidden !important;
+    -webkit-backface-visibility: hidden !important;
   }
 
   /* Fix 4: Eliminate mobile blank gaps & layout collapse during touch scroll */

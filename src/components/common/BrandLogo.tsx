@@ -1,16 +1,19 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { resetHeroToTop } from '../../utils/scrollReset';
 
 interface BrandLogoProps {
   className?: string;
   variant?: 'light' | 'dark' | 'terracotta';
   size?: 'sm' | 'md' | 'lg';
+  onClick?: (e: React.MouseEvent<HTMLAnchorElement>) => void;
 }
 
 export const BrandLogo: React.FC<BrandLogoProps> = ({
   className = '',
   variant = 'light',
-  size = 'md'
+  size = 'md',
+  onClick
 }) => {
   const getScale = () => {
     switch (size) {
@@ -40,11 +43,25 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
 
   const colors = getTextColor();
 
+  const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (onClick) {
+      onClick(e);
+    }
+    // Unified reset: If on homepage, smooth scroll to top 0 and reset hero reel
+    if (window.location.pathname === '/') {
+      e.preventDefault();
+      resetHeroToTop();
+    }
+  };
+
   return (
     <Link
       to="/"
       id="brand-logo-link"
-      className={`brand-wordmark-container ${className}`}
+      onClick={handleClick}
+      className={`brand-logo brand-wordmark-container ${className}`}
+      data-brand-logo="true"
+      data-home-link="true"
       style={{
         display: 'inline-flex',
         alignItems: 'baseline',
