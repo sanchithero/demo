@@ -492,15 +492,24 @@ button {
   }
 }
 
+@media (min-width: 1024px) {
+  .mobile-hero-vignette {
+    display: none !important;
+  }
+}
+
 @media (max-width: 768px) {
-  /* Fix 2: Mobile-scoped scroll pin distance & touch navigation */
+  /* Fix 1: Mobile-scoped scroll pin distance (+=220vh breathing room) */
   #cinematic-hero-section {
-    height: 115vh !important;
+    height: 320vh !important;
     touch-action: pan-y;
   }
   #cinematic-hero-section > div {
     height: 100vh;
     height: 100svh;
+  }
+  .mobile-hero-vignette {
+    display: block !important;
   }
 
   /* Fix 4: Eliminate mobile blank gaps & layout collapse during touch scroll */

@@ -133,9 +133,10 @@ export const CinematicHero: React.FC = () => {
     };
 
     const updateLoop = () => {
-      // Snappy scrub smoothing factor: 0.35 on desktop, 0.6 on mobile for 1-2 thumb swipe response
+      // Desktop scrub factor is strictly preserved at 0.35 (100% untouched)
+      // Mobile uses a dampening factor (0.14, equivalent to GSAP scrub: 1) to prevent rapid finger flicks from skipping frames
       const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
-      const scrubFactor = isMobile ? 0.6 : 0.35;
+      const scrubFactor = isMobile ? 0.14 : 0.35;
       currentProgress += (targetProgress - currentProgress) * scrubFactor;
 
       const frameIdx = Math.min(
@@ -273,6 +274,18 @@ export const CinematicHero: React.FC = () => {
               background: 'linear-gradient(180deg, rgba(3,17,13,0.55) 0%, rgba(3,17,13,0.1) 40%, rgba(3,17,13,0.85) 100%)',
               pointerEvents: 'none',
               zIndex: 5
+            }}
+          />
+
+          {/* Mobile Vignette Overlay for Typography & Coordinates Readability */}
+          <div
+            className="mobile-hero-vignette"
+            style={{
+              position: 'absolute',
+              inset: 0,
+              background: 'radial-gradient(circle, transparent 40%, rgba(3, 17, 13, 0.7) 100%)',
+              pointerEvents: 'none',
+              zIndex: 6
             }}
           />
 
@@ -439,13 +452,20 @@ export const CinematicHero: React.FC = () => {
           60% { transform: translateY(2px); }
         }
 
+        @media (min-width: 1024px) {
+          .mobile-hero-vignette {
+            display: none !important;
+          }
+        }
+
         /* Mobile & Tablet Scoped (Zero Desktop Impact) */
         @media (max-width: 1023px) {
           #cinematic-hero-section,
           #cinematic-hero-section *,
           .hero-reel-header,
           .hero-coordinates,
-          #hero-editorial-content {
+          #hero-editorial-content,
+          #hero-editorial-content * {
             user-select: none !important;
             -webkit-user-select: none !important;
             -webkit-touch-callout: none !important;
@@ -453,13 +473,27 @@ export const CinematicHero: React.FC = () => {
         }
 
         @media (max-width: 768px) {
+          .mobile-hero-vignette {
+            display: block !important;
+          }
+
           #cinematic-hero-section {
-            height: 115vh !important; /* 50-60% reduced pin/scroll distance from 135vh down to 115vh */
+            height: 320vh !important; /* Mobile scroll breathing room (+=220vh end distance) */
             touch-action: pan-y;
           }
+
           #cinematic-hero-section > div {
             height: 100vh;
             height: 100svh;
+          }
+
+          #hero-editorial-content {
+            background: radial-gradient(ellipse at bottom left, rgba(3, 17, 13, 0.85) 0%, rgba(3, 17, 13, 0.4) 65%, transparent 100%);
+            padding: 16px 18px;
+            border-radius: var(--radius-md);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            bottom: clamp(24px, 5vh, 44px) !important;
           }
         }
       `}</style>
